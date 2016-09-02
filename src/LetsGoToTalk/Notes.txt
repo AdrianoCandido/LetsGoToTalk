@@ -1,0 +1,78 @@
+﻿test client
+
+ public class Program
+    {
+        [STAThread]
+        private static void Main(string[] args)
+        {
+            try
+            {
+                Createclient("1", "1111");
+                Createclient("2", "2222");
+                Createclient("3", "3333");
+                Createclient("4", "4444");
+                Createclient("5", "5555");
+                Createclient("6", "6666");
+                Createclient("7", "7777");
+                Createclient("8", "8888");
+                Createclient("9", "9999");
+                Console.ReadKey();
+
+                // Application.EnableVisualStyles();
+                //  new ApplicationController().Start();
+            }
+            catch (Exception e)
+            {
+                Debug.Fail(e.ToString());
+            }
+        }
+
+        private static void Createclient(string name, string data)
+
+        {
+            Task.Run(() =>
+            {
+                TcpClient client = new TcpClient();
+
+                client.Connect("127.0.0.1", 8910);
+
+                if (client.Connected)
+                {
+                    Console.WriteLine("Connected");
+                }
+                else
+                {
+                    Console.WriteLine("Disconnected");
+                }
+                //   client.ReceiveTimeout = 1000;
+
+                while (true)
+                {
+
+                    client.Client.Send(Encoding.UTF8.GetBytes(string.Format("{1}", name, data)));
+
+                    byte[] buffer = new byte[1024];
+
+                    int read = client.Client.Receive(buffer, SocketFlags.None);
+
+                    if (read > 0)
+                    {
+                        string dataReceived = Encoding.UTF8.GetString(buffer, 0, read);
+
+                        if ((new string(name[0], 4)) != dataReceived.Substring(0, 4))
+                        {
+                            Console.WriteLine("DEU MERDA NO CLIENT {0} - " + new string(name[0], 4), name);
+                            Environment.Exit(0);
+                        }
+                        Console.WriteLine("{0}-{1}", name, dataReceived);
+                    }
+                    else
+                    {
+                        Console.WriteLine("client {0} deu time ou na leitura", name);
+                    }
+
+                    // Thread.Sleep(100);
+                }
+            });
+        }
+    }
