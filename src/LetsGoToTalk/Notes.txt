@@ -76,3 +76,155 @@
             });
         }
     }
+
+
+	--------------------------------
+
+	using System;
+using System.Collections.Concurrent;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+
+public class Program
+{
+    private static ConcurrentDictionary<int, TcpClientWrapper> ClientList = new ConcurrentDictionary<int, TcpClientWrapper>();
+
+    private static void Main(string[] args)
+    {
+        try
+        {
+            //  int workerThreads; int completionPortThreads;
+
+            //   ThreadPool.GetMaxThreads(out workerThreads, out completionPortThreads);
+            //   ThreadPool.SetMinThreads(workerThreads, completionPortThreads);
+
+            for (int i = 0; i < 10; i++)
+            {
+                Createclient(i);
+            }
+            Read();
+            //Createclient("2", "2222");
+            //Createclient("3", "3333");
+            //Createclient("4", "4444");
+            //Createclient("5", "5555");
+            //Createclient("6", "6666");
+            //Createclient("7", "7777");
+            //Createclient("8", "8888");
+            //Createclient("9", "9999");
+            //Createclient("10", "9999");
+            //Createclient("11", "AAAA");
+            //Createclient("12", "BBBB");
+            //Createclient("13", "CCCC");
+            //Createclient("14", "DDDD");
+            //Createclient("15", "EEEE");
+            Console.ReadKey();
+
+            // Application.EnableVisualStyles();
+            //  new ApplicationController().Start();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e.Message);
+
+            //  Debug.Fail(e.ToString());
+        }
+    }
+
+    private static void Read()
+    {
+    
+        Task.Run(() =>
+        {
+          //  string s = new string('X', 1050);
+            while (true)
+            {
+               // Console.WriteLine(ClientList.Count + "ss");
+                //   Console.WriteLine(2222);
+                foreach (var item in ClientList)
+                {                  
+                    item.Value.Client.Client.Send(Encoding.UTF8.GetBytes(Guid.NewGuid().ToString()));
+
+                    if (item.Value.Client.Available > 0)
+                    {
+                        ReadClientData(item.Value.Client);
+                    }
+                    else
+                    {
+               //         Console.WriteLine("qq");
+                    }
+                }
+               // Console.WriteLine("sss");
+            }
+
+           
+        });
+
+     
+    }
+
+    private static byte[] buffer = new byte[1024];
+
+    private static void ReadClientData(TcpClient client)
+    {
+        try
+        {
+         //   Console.WriteLine("lendo");
+            int read = client.Client.Receive(buffer, 0, buffer.Length, SocketFlags.None);
+
+            if (read > 0)
+            {
+                string w = Encoding.UTF8.GetString(buffer, 0, read);
+               //   Console.WriteLine();
+                //return;
+            }
+        }
+        catch(Exception e)
+        {
+            Console.WriteLine(e);
+            //    this.DisconnectClient(client);
+        }
+    }
+
+    private static void Createclient(int id)
+    {
+        try
+        {
+            TcpClient client = new TcpClient();
+
+            client.Connect("adriano-pc", 8888);
+
+            if (client.Connected)
+            {
+                Console.WriteLine("C - " + id);
+                ClientList.TryAdd(id, new TcpClientWrapper()
+                {
+                    Client = client,
+                    id = id
+                });
+            }
+            else
+            {
+                Console.WriteLine("Disconnected " + id);
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e.Message + " " + id);
+        }
+    }
+
+    private class TcpClientWrapper
+    {
+
+        public TcpClientWrapper()
+        {
+            Console.WriteLine(id);
+        }
+
+        public TcpClient Client { get; set; }
+
+        public int id { get; set; }
+    }
+}
