@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Net;
-using System.Threading;
+using System.Net.Sockets;
 
 namespace LetsGoToTalk.Server
 {
@@ -14,17 +14,17 @@ namespace LetsGoToTalk.Server
         /// <summary>
         /// Service accept client connection.
         /// </summary>
-        public EventHandler<ServiceClient> ClientConnected;
+        public event EventHandler<ServiceClient> ClientConnected;
 
         /// <summary>
         /// Client disconnected on the service.
         /// </summary>
-        public EventHandler<ServiceClient> ClientDesconnected;
+        public event EventHandler<ServiceClient> ClientDesconnected;
 
         /// <summary>
         /// Event to client send data to service.
         /// </summary>
-        public EventHandler<DataReceivedEventArgs> DataReceived;
+        public event EventHandler<DataReceivedEventArgs> DataReceived;
 
         #endregion Public Fields
 
@@ -35,6 +35,11 @@ namespace LetsGoToTalk.Server
         /// </summary>
         private TcpListennerWrapper listenner;
 
+        /// <summary>
+        /// Buffer to read data from clients
+        /// </summary>
+        private byte[] buffer;
+
         #endregion Private Fields
 
         #region Public Constructors
@@ -44,14 +49,10 @@ namespace LetsGoToTalk.Server
         /// </summary>
         public ServiceListener(IPEndPoint endPoint)
         {
-            int workerThreads;
-            int completionPortThreads;
-            ThreadPool.GetMaxThreads(out workerThreads, out completionPortThreads);
-            ThreadPool.SetMinThreads(workerThreads, completionPortThreads);
-
-            listenner = new TcpListennerWrapper(endPoint);
-            // listenner.
-            ClientManager = new ServiceClientManager();
+            this.ReaderBufferSize = 1024;
+            this.buffer = new byte[ReaderBufferSize];
+            this.listenner = new TcpListennerWrapper(endPoint);
+            this.ClientManager = new ServiceClientManager();
         }
 
         #endregion Public Constructors
@@ -62,6 +63,11 @@ namespace LetsGoToTalk.Server
         /// Manager for connected clients.
         /// </summary>
         public ServiceClientManager ClientManager { get; set; }
+
+        /// <summary>
+        /// Size of buffer to read client data.
+        /// </summary>
+        public int ReaderBufferSize { get; set; }
 
         #endregion Public Properties
 
@@ -74,8 +80,8 @@ namespace LetsGoToTalk.Server
         {
             if (listenner.IsActive == false)
             {
-                listenner.Start(1000);
-                AcceptClients();
+                listenner.Start();
+                StartServiceProcess();
             }
         }
 
@@ -95,20 +101,85 @@ namespace LetsGoToTalk.Server
         #region Private Methods
 
         /// <summary>
-        /// Start process to accept clients.
+        /// Accept client on the service.
         /// </summary>
-        private void AcceptClients()
+        private void AcceptClient()
         {
-            while (listenner.IsActive)
+            // Verify pending connections.
+            if (listenner.Pending() == false)
             {
-                // Wait for client to accept.
-                ServiceClient serviceClient = new ServiceClient(listenner.AcceptTcpClient());
+                return;
+            }
 
-                // Add client do client list.
-                ClientManager.Add(serviceClient);
+            // Wait for client to accept.
+            ServiceClient serviceClient = new ServiceClient(listenner.AcceptTcpClient());
 
-                // Notify client connected.
-                this.RiseClientConnected(serviceClient);
+            // Add client do client list.
+            ClientManager.Add(serviceClient);
+
+            // Notify client connected.
+            this.RiseClientConnected(serviceClient);
+        }
+
+        /// <summary>
+        /// Disconnect client from the server.
+        /// </summary>
+        /// <param name="client"></param>
+        private void DisconnectClient(ServiceClient client)
+        {
+            this.ClientManager.Remove(client.Id);
+
+            try
+            {
+                client.TcpClient.Close();
+            }
+            catch
+            {
+            }
+
+            this.RiseClientDisconnected(client);
+        }
+
+        private void ReadClientData(ServiceClient client)
+        {
+            try
+            {
+                int read = client.TcpClient.Client.Receive(buffer, 0, buffer.Length, SocketFlags.None);
+
+                if (read > 0)
+                {
+                    byte[] bufferRead = new byte[read];
+
+                    Array.Copy(buffer, bufferRead, read);
+
+                    // Invoke data reveive event.
+                    this.RiseReceivedData(client, bufferRead, read);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        /// <summary>
+        /// Receive data for connected clients.
+        /// </summary>
+        private void ReceiveCLientsData()
+        {
+            foreach (ServiceClient client in this.ClientManager)
+            {
+                bool connected = client.TcpClient.IsConnected();
+                bool dataAvaliable = client.TcpClient.Available > 0;
+
+                if (connected && dataAvaliable)
+                {
+                    this.ReadClientData(client);
+                }
+                else
+                if (connected == false)
+                {
+                    this.DisconnectClient(client);
+                }
             }
         }
 
@@ -130,9 +201,9 @@ namespace LetsGoToTalk.Server
         /// <param name="serviceClient">Client that conect on the service.</param>
         private void RiseClientDisconnected(ServiceClient serviceClient)
         {
-            if (this.ClientConnected != null)
+            if (this.ClientDesconnected != null)
             {
-                this.ClientConnected.Invoke(this, serviceClient);
+                this.ClientDesconnected.Invoke(this, serviceClient);
             }
         }
 
@@ -142,9 +213,21 @@ namespace LetsGoToTalk.Server
         /// <param name="serviceClient">Client that conect on the service.</param>
         private void RiseReceivedData(ServiceClient serviceClient, byte[] data, int size)
         {
-            if (this.ClientConnected != null)
+            if (this.DataReceived != null)
             {
-                this.ClientConnected.Invoke(this, serviceClient);
+                this.DataReceived.Invoke(this, new DataReceivedEventArgs(serviceClient, data, size));
+            }
+        }
+
+        /// <summary>
+        /// Start process to accept clients.
+        /// </summary>
+        private void StartServiceProcess()
+        {
+            while (listenner.IsActive)
+            {
+                this.AcceptClient();
+                this.ReceiveCLientsData();
             }
         }
 

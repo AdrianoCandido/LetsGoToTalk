@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 
 namespace LetsGoToTalk.Server
 {
@@ -8,11 +9,13 @@ namespace LetsGoToTalk.Server
     /// </summary>
     public class ServiceClientManager
     {
+        public int ClientCount { get { return serviceClientBag.Count; } }
+
         #region Public Constructors
 
         public ServiceClientManager()
         {
-            serviceClientBag = new ConcurrentDictionary<long, ServiceClient>();
+            serviceClientBag = new ConcurrentDictionary<int, ServiceClient>();
         }
 
         #endregion Public Constructors
@@ -22,7 +25,7 @@ namespace LetsGoToTalk.Server
         /// <summary>
         /// Bag o clients connected on service.
         /// </summary>
-        private ConcurrentDictionary<long, ServiceClient> serviceClientBag { get; set; }
+        private ConcurrentDictionary<int, ServiceClient> serviceClientBag { get; set; }
 
         #endregion Private Properties
 
@@ -36,7 +39,7 @@ namespace LetsGoToTalk.Server
         {
             if (client == null)
             {
-                throw new ArgumentNullException("client");
+                throw new ArgumentNullException(nameof(client));
             }
 
             serviceClientBag.TryAdd(client.Id, client);
@@ -46,10 +49,22 @@ namespace LetsGoToTalk.Server
         /// Remove tcp client on the service.
         /// </summary>
         /// <param name="Id">Id of the client to remove.</param>
-        public void Remove(long Id)
+        public void Remove(int Id)
         {
             ServiceClient serviceClient;
             serviceClientBag.TryRemove(Id, out serviceClient);
+        }
+
+        /// <summary>
+        /// Return client enumerator.
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerator<ServiceClient> GetEnumerator()
+        {
+            foreach (var client in this.serviceClientBag)
+            {
+                yield return client.Value;
+            }
         }
 
         #endregion Public Methods

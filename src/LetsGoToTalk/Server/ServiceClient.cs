@@ -1,5 +1,4 @@
-﻿using System;
-using System.Net.Sockets;
+﻿using System.Net.Sockets;
 using System.Threading;
 
 namespace LetsGoToTalk.Server
@@ -11,7 +10,7 @@ namespace LetsGoToTalk.Server
     {
         #region Private Fields
 
-        private static long connectionCount = 0;
+        private static int connectionCount = 0;
 
         #endregion Private Fields
 
@@ -30,7 +29,7 @@ namespace LetsGoToTalk.Server
         /// <summary>
         /// Identification of the client on server.
         /// </summary>
-        public long Id { get; private set; }
+        public int Id { get; private set; }
 
         /// <summary>
         /// Instance o client
