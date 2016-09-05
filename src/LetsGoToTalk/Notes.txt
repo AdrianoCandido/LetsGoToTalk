@@ -1,4 +1,28 @@
-﻿test client
+﻿- rever o uso do accept Client 
+- estudar a classe SocketAsyncEventArgs
+- referencia de projetos
+http://www.codeproject.com/Articles/22918/How-To-Use-the-SocketAsyncEventArgs-Class
+http://www.codeproject.com/Articles/83102/C-SocketAsyncEventArgs-High-Performance-Socket-Cod
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+test client
 
  public class Program
     {
